@@ -13,11 +13,13 @@ const UserSchema = new mongoose.Schema(
     },
     passowrd: {
       type: String,
-      minLengh: 8,
+      min: 6,
+      max: 16,
     },
     role: {
+      type: String,
       enum: ["admin", "user"],
-      default: user,
+      default: "user",
     },
     isVerified: {
       type: Boolean,
@@ -26,15 +28,16 @@ const UserSchema = new mongoose.Schema(
     verifcationToken: {
       type: String,
     },
-    resetPassowrdToken: {
+    resetPasswordToken: {
       type: String,
     },
-    resetPassowrdExpire: {
+    resetPasswordExpire: {
       type: Date,
     },
   },
   {
-    timestamps,
+    timestamps: true,
   }
 );
-const user = mongoose.model("User", UserSchema);
+const User = mongoose.model("User", UserSchema);
+export default User;
