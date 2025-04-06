@@ -89,7 +89,7 @@ const registerUser = async (req, res) => {
           <p>Thank you for signing up. Please click the button below to verify your email:</p>
           <a href="${
             process.env.BASE_URL
-          }/api/v1/users/verify-email${token}" class="btn">Verify Email</a>
+          }/api/v1/users/verify-email:${token}" class="btn">Verify Email</a>
           <p>If you did not request this, please ignore this message.</p>
           <div class="footer">
             <p>&copy; 2025 LetsCode</p>
@@ -109,7 +109,9 @@ const registerUser = async (req, res) => {
   }
 };
 const verifyEMail = async () => {
+  console.log("verify mail run");
   const { token } = req.params;
+  console.log(token);
   if (!token) {
     return res.status(401).json({
       message: "invaild verify",
@@ -117,7 +119,28 @@ const verifyEMail = async () => {
     });
   }
   // find user using token
-  const user = await User.findOne({ verifcationToken: token });
+  try {
+    const user = await User.findOne({ verifcationToken: token });
+    if (!user) {
+      return res.status(401).json({
+        message: "invaild token or exprire",
+        success: false,
+      });
+    }
+    user.isVerified = true;
+
+    user.verifcationToken = undefined;
+
+    await user.save();
+    res
+      .status(200)
+      .json({
+        message: "verification sucessful you login and ",
+      })
+      .send("verifed");
+  } catch (error) {
+    console.log("verify email error", error);
+  }
 };
 
-export { registerUser };
+export { registerUser, verifyEMail };
