@@ -180,9 +180,13 @@ const login = async (req, res) => {
         success: false,
       });
     }
-    const token = jwt.sign({ id: user._id, role: user.role }, "shhhh", {
-      expiresIn: "24h",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECERET,
+      {
+        expiresIn: "24h",
+      }
+    );
     const cookieOption = {
       httpOnly: true,
       secure: true,
