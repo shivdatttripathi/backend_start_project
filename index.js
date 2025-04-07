@@ -1,9 +1,10 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 dotenv.config();
 import cors from "cors";
 import DataBaseConnection from "./DataBase/DataBase.js";
-import Userroutes from "./routes/user.routes.js";
+import UserRoutes from "./routes/user.routes.js";
 // port assign in env file
 const port = process.env.PORT || 3000;
 const app = express();
@@ -16,9 +17,10 @@ app.use(
 );
 app.use(express.json({})); // Middleware to parse JSON bodies
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 // db connetion
 DataBaseConnection();
-app.use("/api/v1/users", Userroutes);
+app.use("/api/v1/users", UserRoutes);
 app.get("/", (req, res) => {
   res.send("hello");
 });

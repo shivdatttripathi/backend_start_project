@@ -1,8 +1,10 @@
 import User from "../model/User.js";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
-
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 const registerUser = async (req, res) => {
+  console.log("register route");
   const { name, email, password } = req.body;
 
   if (!name || !email || !password)
@@ -13,7 +15,6 @@ const registerUser = async (req, res) => {
     const userExist = await User.findOne({ email }); // check user exixst baised on email
     if (userExist)
       return res.status(400).json({ message: "user alredy exist" });
-
     const user = await User.create({
       name,
       email,
@@ -24,12 +25,12 @@ const registerUser = async (req, res) => {
         message: "user not register",
       });
     }
-    console.log(user);
     const token = crypto.randomBytes(22).toString("hex");
 
     console.log(token);
-    User.verifcationToken = token;
+    user.verificationToken = token;
     await user.save();
+    console.log(user.verificationToken);
 
     // send mail using nodemailer and service use MailTrap
     const transporter = nodemailer.createTransport({
@@ -103,34 +104,42 @@ const registerUser = async (req, res) => {
     res.status(201).json({
       message: "register succsesful and mail run",
       success: true,
+      user,
     });
   } catch (error) {
     console.log("error in register", error);
   }
 };
-const verifyEMail = async () => {
+const verifyEMail = async (req, res) => {
   console.log("verify mail run");
-  const { token } = req.params;
-  console.log(token);
+  const token = String(req.params.token).trim(); // safely convert to string
+  console.log("token coming", token);
   if (!token) {
     return res.status(401).json({
       message: "invaild verify",
       success: false,
     });
   }
+  // const authtoken = token.toString();
+  if (token === "4045faf41d060e6f88b7ae27514593cc20fdae244467") {
+    console.log("token is match");
+  }
   // find user using token
   try {
-    const user = await User.findOne({ verifcationToken: token });
+    // const user = await User.findOne({ verificationToken });
+    const user = await User.findOne({
+      verificationToken: token,
+    });
+    console.log(user);
     if (!user) {
       return res.status(401).json({
         message: "invaild token or exprire",
         success: false,
       });
     }
+    console.log(user);
     user.isVerified = true;
-
-    user.verifcationToken = undefined;
-
+    user.verificationToken = undefined;
     await user.save();
     res
       .status(200)
@@ -143,4 +152,56 @@ const verifyEMail = async () => {
   }
 };
 
-export { registerUser, verifyEMail };
+const login = async (req, res) => {
+  const { email, password } = req.body;
+  if (!email && !password) {
+    return res.status(400).json({
+      message: "all field requireds",
+      success: false,
+    });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+    console.log("login user", user);
+    if (!user) {
+      return res.status(400).json({
+        message: "email password wrong",
+        success: false,
+      });
+    }
+    console.log(user);
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log("ismatch", isMatch);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "email password wrong",
+        success: false,
+      });
+    }
+    const token = jwt.sign({ id: user._id, role: user.role }, "shhhh", {
+      expiresIn: "24h",
+    });
+    const cookieOption = {
+      httpOnly: true,
+      secure: true,
+      maxAge: 24 * 60 * 60 * 1000,
+    };
+    res.cookie("authToken", token, cookieOption);
+
+    return res.status(200).json({
+      message: "user login sucessfull",
+      user: {
+        name: user.name,
+        email: user.email,
+        token,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.log("user login error", error);
+  }
+};
+
+export { registerUser, verifyEMail, login };
