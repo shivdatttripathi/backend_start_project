@@ -1,8 +1,12 @@
 import User from "../model/User.js";
-import nodemailer from "nodemailer";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import {
+  forgotPasswordMail,
+  registerUserSendEmail,
+} from "../utils/emailCall.js";
+// register controller
 const registerUser = async (req, res) => {
   console.log("register route");
   const { name, email, password } = req.body;
@@ -33,74 +37,7 @@ const registerUser = async (req, res) => {
     console.log(user.verificationToken);
 
     // send mail using nodemailer and service use MailTrap
-    const transporter = nodemailer.createTransport({
-      host: process.env.MAILTRAP_HOST,
-      port: process.env.MAILTRAP_PORT,
-      secure: false, // true for port 465, false for other ports
-      auth: {
-        user: process.env.MAILTRAP_USERNAME,
-        pass: process.env.MAILTRAP_PASSWORD,
-      },
-    });
-    const mailOption = {
-      from: process.env.MAILTRAP_SenderMail, // sender address
-      to: user.email, // reciver email i choise user email
-      subject: "Verification mail", // Subject line
-      text: `please click following link for verify email if u not register not click
-      ${process.env.BASE_URL}/api/v1/users/verify-email${token}`, // plain text body
-      html: `<!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Verify Email</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            padding: 20px;
-          }
-          .container {
-            max-width: 600px;
-            background-color: #fff;
-            padding: 30px;
-            margin: auto;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-          }
-          .btn {
-            background-color: #007bff;
-            color: white;
-            padding: 12px 20px;
-            text-decoration: none;
-            border-radius: 5px;
-            display: inline-block;
-            margin-top: 20px;
-          }
-          .footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #888;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h2>Verify Your Email Address</h2>
-          <p>Hello ${user.name || "there"},</p>
-          <p>Thank you for signing up. Please click the button below to verify your email:</p>
-          <a href="${
-            process.env.BASE_URL
-          }/api/v1/users/verify-email:${token}" class="btn">Verify Email</a>
-          <p>If you did not request this, please ignore this message.</p>
-          <div class="footer">
-            <p>&copy; 2025 LetsCode</p>
-          </div>
-        </div>
-      </body>
-      </html>`, // html body
-    };
-    await transporter.sendMail(mailOption);
-
+    registerUserSendEmail();
     res.status(201).json({
       message: "register succsesful and mail run",
       success: true,
@@ -110,47 +47,51 @@ const registerUser = async (req, res) => {
     console.log("error in register", error);
   }
 };
+// email verify controller
+
 const verifyEMail = async (req, res) => {
-  console.log("verify mail run");
-  const token = String(req.params.token).trim(); // safely convert to string
-  console.log("token coming", token);
-  if (!token) {
-    return res.status(401).json({
-      message: "invaild verify",
-      success: false,
-    });
-  }
-  // const authtoken = token.toString();
-  if (token === "4045faf41d060e6f88b7ae27514593cc20fdae244467") {
-    console.log("token is match");
-  }
-  // find user using token
-  try {
-    // const user = await User.findOne({ verificationToken });
-    const user = await User.findOne({
-      verificationToken: token,
-    });
-    console.log(user);
-    if (!user) {
-      return res.status(401).json({
-        message: "invaild token or exprire",
-        success: false,
-      });
-    }
-    console.log(user);
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
-    res
-      .status(200)
-      .json({
-        message: "verification sucessful you login and ",
-      })
-      .send("verifed");
-  } catch (error) {
-    console.log("verify email error", error);
-  }
+  //   console.log("verify mail run");
+  //   const token = String(req.params.token).trim(); // safely convert to string
+  //   console.log("token coming", token);
+  //   if (!token) {
+  //     return res.status(401).json({
+  //       message: "invaild verify",
+  //       success: false,
+  //     });
+  //   }
+  //   // const authtoken = token.toString();
+  //   if (token === "4045faf41d060e6f88b7ae27514593cc20fdae244467") {
+  //     console.log("token is match");
+  //   }
+  //   // find user using token
+  //   try {
+  //     // const user = await User.findOne({ verificationToken });
+  //     const user = await User.findOne({
+  //       verificationToken: token,
+  //     });
+  //     console.log(user);
+  //     if (!user) {
+  //       return res.status(401).json({
+  //         message: "invaild token or exprire",
+  //         success: false,
+  //       });
+  //     }
+  //     console.log(user);
+  //     user.isVerified = true;
+  //     user.verificationToken = undefined;
+  //     await user.save();
+  //     res
+  //       .status(200)
+  //       .json({
+  //         message: "verification sucessful you login and ",
+  //       })
+  //       .send("verifed");
+  //   } catch (error) {
+  //     console.log("verify email error", error);
+  //   }
 };
+
+// login user  controller
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -180,9 +121,10 @@ const login = async (req, res) => {
         success: false,
       });
     }
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
-      process.env.JWT_SECERET,
+      process.env.JWT_SECRET,
       {
         expiresIn: "24h",
       }
@@ -207,5 +149,75 @@ const login = async (req, res) => {
     console.log("user login error", error);
   }
 };
+// check profile controller
 
-export { registerUser, verifyEMail, login };
+const isMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      "-password -isVerified"
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    return res.status(200).json({
+      message: "User profile matched",
+      success: true,
+      user,
+    });
+  } catch (error) {
+    console.log("Error in isMe:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+const logOutUser = async (req, res) => {
+  res.cookie("authToken", "", {
+    expiresIn: new Date(0), // is 0 means 1971 date time 00:00:00
+  });
+};
+
+// forgot password
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(401).json({
+      message: "please fill all field ",
+      success: false,
+    });
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(404).json({
+      message: "account can't found ",
+      success: false,
+    });
+  }
+  const token = crypto.randomBytes(22).toString("hex");
+  user.resetPasswordToken = token;
+  user.resetPasswordExpire = new Date() + 10 * 60 * 1000;
+  user.save();
+  forgotPasswordMail(user, token);
+  return res.status(200).json({
+    message: "reset link send in your email",
+    success: true,
+  });
+};
+const resetPassword = async (req, res) => {};
+
+export {
+  registerUser,
+  verifyEMail,
+  login,
+  isMe,
+  resetPassword,
+  forgotPassword,
+  logOutUser,
+};
